@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# DictaPaste local development artifacts
+.idea/
+.tmp/
+nul
+src/*.egg-info/
+src/data/history.json

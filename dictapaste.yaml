@@ -1,0 +1,24 @@
+llm:
+  enabled_by_default: true
+  base_url: http://127.0.0.1:1234
+  model: google/gemma-4-e4b
+  timeout_sec: 30
+  temperature: 0.2
+input:
+  mouse_button: x2
+startup:
+  start_with_windows: true
+streaming:
+  enabled: true
+  stt_chunking_enabled: true
+  chunk_duration_sec: 3
+  llm_start_mode: final
+prompt: "Clean up the following dictated text.\nGoals:\n1) Remove filler words, false\
+  \ starts, repetitions, self-corrections, and\n   unnecessary introductions.\n2)\
+  \ Correct grammar, spelling, and punctuation.\n3) Condense the text as much as is\
+  \ reasonable without losing any meaningful\n   information, requirements, intent,\
+  \ or details.\n4) Treat the result not as a summary, but as a cleaned, compact final\
+  \ version\n   of the same statement.\n5) Output only the final text as directly\
+  \ reusable continuous prose.\n6) Do not output a heading, a list, explanations,\
+  \ or any chain-of-thought.\n7) Do not invent facts or add anything.\n\nLanguage\
+  \ hint: {language}\n\nText:\n{transcript}"
