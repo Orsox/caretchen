@@ -1,21 +1,71 @@
-﻿from __future__ import annotations
+"""Global mouse button hook with platform-specific backends.
 
+Provides MouseToggleHook for X11 (pynput) and Wayland (pyinputcapture).
+Platform detection is automatic — the correct backend is chosen at runtime.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import logging
+import os
+import sys
 from collections.abc import Callable
 
-from pynput.mouse import Button, Listener
+logger = logging.getLogger(__name__)
 
-from .i18n import tr
 
-BUTTON_MAP = {
-    "left": Button.left,
-    "right": Button.right,
-    "middle": Button.middle,
-    "x1": Button.x1,
-    "x2": Button.x2,
-}
+def _has_wayland_session() -> bool:
+    """Check if running under a Wayland session."""
+    session_type = os.environ.get("XDG_SESSION_TYPE", "")
+    if session_type == "wayland":
+        return True
+    if os.environ.get("WAYLAND_DISPLAY") and session_type not in ("x11", "xorg"):
+        return True
+    return False
+
+
+def _is_linux() -> bool:
+    return sys.platform.startswith("linux")
+
+
+def _get_hook_class():
+    """Return the appropriate MouseToggleHook class for the current platform."""
+    if _is_linux() and _has_wayland_session():
+        if importlib.util.find_spec("pyinputcapture") is not None:
+            try:
+                from .input_hook_wayland import MouseToggleHook as WaylandHook
+                logger.info("Using Wayland portal mouse hook backend")
+                return WaylandHook
+            except ImportError:
+                logger.info("pyinputcapture import failed, trying evdev backend")
+        else:
+            logger.info("pyinputcapture not available, trying evdev backend")
+
+        if importlib.util.find_spec("evdev") is not None:
+            try:
+                from .input_hook_evdev import MouseToggleHook as EvdevHook
+                logger.info("Using evdev mouse hook backend")
+                return EvdevHook
+            except ImportError:
+                logger.warning("evdev import failed, falling back to X11/pynput")
+        else:
+            logger.warning("evdev not available, falling back to X11/pynput")
+
+    # X11 / Windows / macOS / fallback
+    from .input_hook_x11 import MouseToggleHook as X11Hook
+    logger.info("Using X11/pynput mouse hook backend")
+    return X11Hook
 
 
 class MouseToggleHook:
+    """Platform-aware global mouse button hook.
+
+    Delegates to the appropriate backend:
+      - Wayland (Linux): pyinputcapture
+      - X11 / other: pynput
+    """
+
     def __init__(
         self,
         button_name: str,
@@ -25,60 +75,21 @@ class MouseToggleHook:
         on_release: Callable[[int, int], None] | None = None,
         on_move: Callable[[int, int], None] | None = None,
     ) -> None:
-        self.button_name = button_name.lower().strip()
-        self.on_trigger = on_trigger
-        self.on_error = on_error
-        self.on_press = on_press
-        self.on_release = on_release
-        self.on_move = on_move
-        self._pressed = False
-        self._listener: Listener | None = None
-
-    def _resolve_button(self) -> Button:
-        return BUTTON_MAP.get(self.button_name, Button.x1)
+        self._backend = _get_hook_class()
+        self._instance = self._backend(
+            button_name=button_name,
+            on_trigger=on_trigger,
+            on_error=on_error,
+            on_press=on_press,
+            on_release=on_release,
+            on_move=on_move,
+        )
 
     def start(self) -> None:
-        self.stop()
-        target_button = self._resolve_button()
-
-        def _on_click(x, y, button, pressed) -> None:
-            if button != target_button:
-                return
-            try:
-                if pressed:
-                    self._pressed = True
-                    if self.on_press is not None:
-                        self.on_press(int(x), int(y))
-                    else:
-                        self.on_trigger()
-                    return
-
-                if not self._pressed:
-                    return
-                self._pressed = False
-                if self.on_release is not None:
-                    self.on_release(int(x), int(y))
-            except Exception as exc:
-                if self.on_error:
-                    self.on_error(tr("input_hook_callback_error") + str(exc))
-
-        def _on_move(x, y) -> None:
-            if not self._pressed or self.on_move is None:
-                return
-            try:
-                self.on_move(int(x), int(y))
-            except Exception as exc:
-                if self.on_error:
-                    self.on_error(tr("input_hook_callback_error") + str(exc))
-
-        self._listener = Listener(on_click=_on_click, on_move=_on_move)
-        self._listener.start()
+        self._instance.start()
 
     def stop(self) -> None:
-        if self._listener is not None:
-            self._listener.stop()
-            self._listener = None
+        self._instance.stop()
 
     def update_button(self, button_name: str) -> None:
-        self.button_name = button_name.lower().strip()
-        self.start()
+        self._instance.update_button(button_name)

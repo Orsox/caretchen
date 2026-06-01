@@ -1,6 +1,6 @@
 # DictaPaste (Krätchen)
 
-DictaPaste ist eine Cross-Platform-Tray-App für Windows und Linux/X11. Sie nimmt Sprache per globaler Maustaste auf, transkribiert lokal mit Whisper, verfeinert den Text optional über einen lokalen OpenAI-kompatiblen LLM-Server und fügt das Ergebnis in die aktuell fokussierte Anwendung ein.
+DictaPaste ist eine Cross-Platform-Tray-App für Windows und Linux (X11 + Wayland). Sie nimmt Sprache per globaler Maustaste auf, transkribiert lokal mit Whisper, verfeinert den Text optional über einen lokalen OpenAI-kompatiblen LLM-Server und fügt das Ergebnis in die aktuell fokussierte Anwendung ein.
 
 Kurzablauf:
 
@@ -16,7 +16,7 @@ Wenn der LLM nicht erreichbar ist, verwendet DictaPaste automatisch das rohe Tra
 
 - System-Tray-App ohne Hauptfenster, Anzeigename: **Krätchen**.
 - Zustandsanzeige im Tray: `IDLE`, `RECORDING`, `TRANSCRIBING`, `REFINING`, `PASTING`, `ERROR`.
-- Globale Maussteuerung über `pynput`.
+- Globale Maussteuerung über `pynput` (X11) oder `pyinputcapture` (Wayland).
 - Modus-Popup an der Cursorposition:
   - **Verbessern**: diktierten Text bereinigen und verbessern.
   - **Prompt**: aus Diktat einen direkt nutzbaren Prompt erstellen.
@@ -42,12 +42,14 @@ Wenn der LLM nicht erreichbar ist, verwendet DictaPaste automatisch das rohe Tra
 ## Voraussetzungen
 
 - Python **3.11+**
-- Windows oder Linux mit X11
+- Linux mit X11 oder Wayland
 - Mikrofon/Input-Gerät
 - Optional: lokaler OpenAI-kompatibler LLM-Router, z. B. LM Studio oder Ollama-kompatibler Router
-- Für Linux-Paste-Modus `xdotool`: installiertes `xdotool`
-
-Wayland wird in dieser Version nicht offiziell unterstützt.
+- Für Linux-Paste-Modi:
+  - `xdotool` (X11 / XWayland)
+  - `ydotool` (Wayland mit wlroots: Sway, Hyprland, Wayfire)
+  - `wtype` (Wayland mit GNOME)
+- Für Wayland-Maus-Hook (optional): `pyinputcapture` (`pip install pyinputcapture`)
 
 ## Installation für Entwicklung
 
@@ -214,9 +216,12 @@ Der Prompt muss `{transcript}` enthalten; `{language}` ist optional. Der Standar
 
 ## Paste-Modi
 
-- `ctrl_v`: Text ins Clipboard kopieren und `Ctrl+V` simulieren.
+- `ctrl_v`: Text ins Clipboard kopieren und `Ctrl+V` simulieren (pynput unter X11, Fallback unter Wayland).
 - `copy`: Text nur ins Clipboard kopieren.
 - `xdotool`: unter Linux per `xdotool type` schreiben, mit Fallback auf `ctrl_v`.
+- `ydotool`: unter Wayland (wlroots) per `ydotool` simulieren.
+- `wtype`: unter Wayland (GNOME) per `wtype` simulieren.
+- `portal`: Clipboard + Desktop-Portal-Fallback.
 
 ## Build
 
@@ -254,8 +259,11 @@ caretchen/
 │   ├── audio.py             # Aufnahme und Geräteauflistung
 │   ├── stt.py               # Whisper-Transkription und Teiltranskripte
 │   ├── llm.py               # OpenAI-kompatible LLM-Verfeinerung
-│   ├── paste.py             # Clipboard/Keyboard/xdotool-Paste
-│   ├── input_hook.py        # Globaler Maus-Hook
+│   ├── paste.py             # Clipboard/Keyboard/xdotool/ydotool-Paste
+│   ├── paste_wayland.py     # Wayland-Paste-Implementierung
+│   ├── input_hook.py        # Globaler Maus-Hook (X11/Wayland)
+│   ├── input_hook_x11.py    # X11-Maus-Hook (pynput)
+│   ├── input_hook_wayland.py # Wayland-Maus-Hook (pyinputcapture)
 │   ├── config.py            # TOML/YAML-Konfiguration und Migration
 │   ├── prompt.py            # Prompt-Laden, Speichern und Rendering
 │   ├── settings_dialog.py   # Vollständiger Settings-Dialog
@@ -279,7 +287,8 @@ caretchen/
 
 ## Bekannte Einschränkungen
 
-- Linux-Ziel ist X11; Wayland wird nicht offiziell unterstützt.
+- Der Maus-Hook unter Wayland erfordert `pyinputcapture` (`pip install pyinputcapture`). Ohne Installation wird auf X11/pynput fallbacken (funktioniert nur unter X11).
+- Paste unter Wayland erfordert `ydotool`, `wtype` oder `xdotool` — je nach Compositor.
 - Die erste Whisper-Modellinitialisierung bzw. der erste Modelldownload kann dauern.
 - LLM-Verfeinerung ist optional und fällt bei Fehlern auf das rohe Transkript zurück.
 - Der Modus **Direkt** überspringt den LLM immer und fügt das rohe Transkript ein.

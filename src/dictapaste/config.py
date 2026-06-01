@@ -62,7 +62,7 @@ class OutputConfig:
     @classmethod
     def from_dict(cls, raw: dict) -> "OutputConfig":
         mode = str(raw.get("paste_mode", "ctrl_v")).lower().strip()
-        if mode not in ("ctrl_v", "copy", "xdotool"):
+        if mode not in ("ctrl_v", "ctrl_shift_v", "copy", "xdotool", "ydotool", "ydotool_type", "wtype", "portal"):
             mode = "ctrl_v"
         return cls(paste_mode=mode)
 

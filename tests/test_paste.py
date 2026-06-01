@@ -2,7 +2,14 @@ import pytest
 
 import pyperclip
 
-from dictapaste import paste
+from dictapaste import paste, paste_wayland
+
+
+@pytest.fixture(autouse=True)
+def _disable_platform_paste_tools(monkeypatch):
+    """Keep paste unit tests independent of the developer's Wayland/X11 tools."""
+    monkeypatch.setattr(paste_wayland, "_has_wayland_session", lambda: False)
+    monkeypatch.setattr(paste_wayland, "_which", lambda _tool: None)
 
 
 class _FakeClipboard:
@@ -129,6 +136,12 @@ def test_copy_with_retry_exhausts_attempts(monkeypatch):
 
     monkeypatch.setattr(paste.pyperclip, "copy", clipboard.copy)
     monkeypatch.setattr(paste.pyperclip, "paste", clipboard.paste)
+    try:
+        from PySide6.QtGui import QGuiApplication
+
+        monkeypatch.setattr(QGuiApplication, "instance", staticmethod(lambda: None))
+    except Exception:
+        pass
 
     with pytest.raises(pyperclip.PyperclipException, match="clipboard locked forever"):
         paste._copy_with_retry("test text")

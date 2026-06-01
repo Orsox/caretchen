@@ -362,6 +362,7 @@ class DictationPipeline:
             stt_finished_at = time.monotonic()
         except Exception as exc:
             stt_finished_at = time.monotonic()
+            logger.exception("STT transcription failed")
             self._log_timings(
                 outcome="stt_error",
                 total_started_at=total_started_at,
@@ -451,6 +452,7 @@ class DictationPipeline:
                 self._notification_callback(preview)
         except Exception as exc:
             paste_finished_at = time.monotonic()
+            logger.exception("Paste failed")
             self._notify(tr("pipeline_paste_failed") + str(exc))
             self._set_state(AppState.ERROR)
         finally:

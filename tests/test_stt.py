@@ -183,3 +183,30 @@ class TestWhisperProgress:
                 first = download_calls
                 transcriber._ensure_model()
                 assert download_calls == first, "Model should not be re-downloaded"
+
+    def test_transcribe_uses_quality_oriented_decode_options(self) -> None:
+        transcriber = WhisperTranscriber(model_name="tiny", language="de")
+        fake_model = MagicMock()
+        fake_segment = MagicMock()
+        fake_segment.text = " Hallo Welt "
+        fake_model.transcribe.return_value = ([fake_segment], None)
+        transcriber._model = fake_model
+
+        result = transcriber.transcribe(np.array([0.0, 0.02, -0.02], dtype=np.float32), 16000)
+
+        assert result == "Hallo Welt"
+        _waveform, kwargs = fake_model.transcribe.call_args
+        assert kwargs["language"] == "de"
+        assert kwargs["beam_size"] == 5
+        assert kwargs["best_of"] == 5
+        assert kwargs["temperature"] == 0.0
+        assert kwargs["condition_on_previous_text"] is False
+        assert kwargs["vad_parameters"]["min_silence_duration_ms"] == 700
+
+    def test_prepare_waveform_centers_and_normalizes_quiet_audio(self) -> None:
+        transcriber = WhisperTranscriber(model_name="tiny")
+
+        waveform = transcriber._prepare_waveform(np.array([0.05, 0.06, 0.04], dtype=np.float32))
+
+        assert abs(float(np.mean(waveform))) < 1e-6
+        assert np.isclose(np.max(np.abs(waveform)), 0.8, atol=1e-5)

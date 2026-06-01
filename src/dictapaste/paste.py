@@ -1,107 +1,66 @@
+"""Text paste implementation with Wayland support.
+
+Provides paste_text() with platform-aware backends:
+  - X11: pynput.keyboard.Controller (Ctrl+V)
+  - Wayland: ydotool → wtype → xdotool → clipboard fallback
+
+On Wayland, tries native tools first, then falls back to xdotool and
+clipboard-based methods. On X11, uses the original pynput approach.
+"""
+
 from __future__ import annotations
 
-import enum
-import subprocess
-import sys
-import time
+import sys as _sys
+import time as _time
 
 import pyperclip
-from pynput.keyboard import Controller, Key
+from pynput.keyboard import Controller, Key  # noqa: F401 — for monkeypatch compatibility
 
-_CLIPBOARD_WRITE_ATTEMPTS = 5
-_CLIPBOARD_SETTLE_SEC = 0.03
-_KEY_PRESS_DELAY_SEC = 0.02
+from . import paste_wayland as _backend
 
+PasteMode = _backend.PasteMode
+_has_wayland_session = _backend._has_wayland_session
+_paste_portal = _backend._paste_portal
+_paste_wtype = _backend._paste_wtype
+_paste_xdotool = _backend._paste_xdotool
+_paste_ydotool = _backend._paste_ydotool
 
-class PasteMode(str, enum.Enum):
-    """How text is pasted into the focused application."""
-
-    CTRL_V = "ctrl_v"  # Copy to clipboard + send Ctrl+V
-    COPY = "copy"       # Copy to clipboard only
-    XDOTOOL = "xdotool"  # Use xdotool (Linux only, falls back to Ctrl+V)
-
-
-def _clipboard_matches(text: str) -> bool:
-    try:
-        return pyperclip.paste() == text
-    except pyperclip.PyperclipException:
-        return False
+# Make sys and time accessible as module attributes for test monkeypatching.
+sys = _sys
+time = _time
 
 
-def _copy_with_retry(text: str) -> None:
-    last_error: Exception | None = None
-
-    for _ in range(_CLIPBOARD_WRITE_ATTEMPTS):
-        try:
-            pyperclip.copy(text)
-        except pyperclip.PyperclipException as exc:
-            last_error = exc
-            time.sleep(_CLIPBOARD_SETTLE_SEC)
-            continue
-
-        time.sleep(_CLIPBOARD_SETTLE_SEC)
-        if _clipboard_matches(text):
-            return
-
-    if last_error is not None:
-        raise last_error
-
-    pyperclip.copy(text)
-    time.sleep(_CLIPBOARD_SETTLE_SEC)
+def _sync_backend() -> None:
+    """Propagate compatibility monkeypatches to the backend module."""
+    _backend.pyperclip = pyperclip
+    _backend.Controller = Controller
+    _backend.Key = Key
+    _backend.sys = sys
+    _backend.time = time
 
 
-def _send_ctrl_v(keyboard: Controller) -> None:
-    keyboard.press(Key.ctrl)
-    time.sleep(_KEY_PRESS_DELAY_SEC)
-    keyboard.press("v")
-    time.sleep(_KEY_PRESS_DELAY_SEC)
-    keyboard.release("v")
-    time.sleep(_KEY_PRESS_DELAY_SEC)
-    keyboard.release(Key.ctrl)
+def _copy_with_retry(text: str, attempts: int = 5) -> None:
+    _sync_backend()
+    return _backend._copy_with_retry(text, attempts=attempts)
 
 
 def paste_text(text: str, mode: str = "ctrl_v") -> None:
-    """Paste text using the specified mode.
-
-    Args:
-        text: The text to paste.
-        mode: One of 'ctrl_v', 'copy', or 'xdotool'. Defaults to 'ctrl_v'.
-    """
-    if not text:
-        return
-
-    mode_lower = mode.lower().strip()
-
-    if mode_lower == "copy":
-        _copy_with_retry(text)
-        return
-
-    if mode_lower == "xdotool":
-        if _try_xdotool(text):
-            return
-        # Fallback to ctrl_v if xdotool not available
-
-    # Default: ctrl_v
-    _copy_with_retry(text)
-    keyboard = Controller()
-    _send_ctrl_v(keyboard)
+    _sync_backend()
+    return _backend.paste_text(text, mode=mode)
 
 
-def _try_xdotool(text: str) -> bool:
-    """Try to paste text using xdotool on Linux.
-
-    Returns True if successful, False if xdotool is not available.
-    """
-    if sys.platform != "linux":
-        return False
-
-    try:
-        subprocess.run(
-            ["xdotool", "type", "--clearselection", "--", text],
-            check=True,
-            capture_output=True,
-            timeout=5,
-        )
-        return True
-    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
-        return False
+__all__ = [
+    "PasteMode",
+    "Controller",
+    "Key",
+    "_copy_with_retry",
+    "_has_wayland_session",
+    "_paste_portal",
+    "_paste_wtype",
+    "_paste_xdotool",
+    "_paste_ydotool",
+    "paste_text",
+    "sys",
+    "time",
+    "pyperclip",
+]

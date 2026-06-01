@@ -105,6 +105,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
         # input_hook.py
         "input_hook_callback_error": "Mouse hook callback failed: ",
+        "input_hook_wayland_missing": "pyinputcapture not installed — Wayland portal mouse capture unavailable. Falling back to evdev.",
+        "input_hook_wayland_error": "Wayland mouse hook failed: {error}",
+        "input_hook_evdev_missing": "evdev is not installed — install with: pip install evdev",
+        "input_hook_evdev_permission": "No readable mouse input devices. Add your user to the input group or configure a udev rule.",
 
         # pipeline.py
         "pipeline_busy": "Dictation is busy. Wait for current processing to finish.",
@@ -226,6 +230,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 
         # input_hook.py
         "input_hook_callback_error": "Mouse hook callback failed: ",
+        "input_hook_wayland_missing": "pyinputcapture not installed — Wayland portal mouse capture unavailable. Falling back to evdev.",
+        "input_hook_wayland_error": "Wayland mouse hook failed: {error}",
+        "input_hook_evdev_missing": "evdev is not installed — install with: pip install evdev",
+        "input_hook_evdev_permission": "No readable mouse input devices. Add your user to the input group or configure a udev rule.",
 
         # pipeline.py
         "pipeline_busy": "Dictation is busy. Wait for current processing to finish.",

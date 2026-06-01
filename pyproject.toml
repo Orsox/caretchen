@@ -19,6 +19,7 @@ dependencies = [
   "pyperclip>=1.9",
   "tomli-w>=1.0",
   "PyYAML>=6.0",
+  "evdev>=1.9; sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]

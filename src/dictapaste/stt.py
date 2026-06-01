@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import os
-import tempfile
 import threading
 from collections.abc import Callable
 
 import numpy as np
-import soundfile as sf
 from faster_whisper import WhisperModel
 from faster_whisper.utils import download_model
+
+
+_MIN_NORMALIZE_PEAK = 0.01
+_TARGET_NORMALIZE_PEAK = 0.8
 
 
 def _normalize_words(text: str) -> list[str]:
@@ -129,27 +130,51 @@ class WhisperTranscriber:
         """Load/download the Whisper model before the first dictation finishes."""
         self._ensure_model()
 
+    def _prepare_waveform(self, audio: np.ndarray) -> np.ndarray:
+        """Return a mono float32 waveform with light cleanup for dictation.
+
+        Some microphones arrive with a DC offset or very low gain. Whisper is
+        more robust when the signal is centered and speech peaks are not tiny,
+        so we normalize quiet-but-nonempty recordings without clipping loud ones.
+        """
+        waveform = np.asarray(audio, dtype=np.float32).reshape(-1)
+        if waveform.size == 0:
+            return waveform
+
+        finite_mask = np.isfinite(waveform)
+        if not finite_mask.all():
+            waveform = np.where(finite_mask, waveform, 0.0).astype(np.float32, copy=False)
+
+        waveform = waveform - float(np.mean(waveform))
+        peak = float(np.max(np.abs(waveform))) if waveform.size else 0.0
+        if _MIN_NORMALIZE_PEAK <= peak < _TARGET_NORMALIZE_PEAK:
+            waveform = waveform * (_TARGET_NORMALIZE_PEAK / peak)
+
+        return np.clip(waveform, -1.0, 1.0).astype(np.float32, copy=False)
+
     def transcribe(self, audio: np.ndarray, sample_rate: int) -> str:
         if audio.size == 0:
             return ""
 
         model = self._ensure_model()
-        tmp_path: str | None = None
 
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                tmp_path = tmp.name
+        if sample_rate != 16000:
+            raise ValueError(f"WhisperTranscriber expects 16 kHz audio, got {sample_rate} Hz")
 
-            sf.write(tmp_path, audio, sample_rate)
-
-            language = None if self.language in ("", "auto") else self.language
-            segments, _ = model.transcribe(
-                tmp_path,
-                language=language,
-                vad_filter=True,
-            )
-            text = " ".join(seg.text.strip() for seg in segments if seg.text and seg.text.strip())
-            return text.strip()
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        # Pass the waveform directly to faster-whisper. This avoids PyAV decoding
+        # of a temporary WAV file, which can fail on localized systems while
+        # formatting FFmpeg error messages (UnicodeDecodeError).
+        waveform = self._prepare_waveform(audio)
+        language = None if self.language in ("", "auto") else self.language
+        segments, _ = model.transcribe(
+            waveform,
+            language=language,
+            vad_filter=True,
+            beam_size=5,
+            best_of=5,
+            temperature=0.0,
+            condition_on_previous_text=False,
+            vad_parameters={"min_silence_duration_ms": 700},
+        )
+        text = " ".join(seg.text.strip() for seg in segments if seg.text and seg.text.strip())
+        return text.strip()
