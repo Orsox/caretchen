@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 from pathlib import Path
 import os
 import platform
@@ -282,7 +283,6 @@ def _migrate_config(cfg: AppConfig) -> AppConfig:
         cfg.version = 3
 
     if current_version > CURRENT_CONFIG_VERSION:
-        import logging
         logger = logging.getLogger(__name__)
         logger.warning(
             "Config version %d is newer than expected (%d). Proceeding without migration.",

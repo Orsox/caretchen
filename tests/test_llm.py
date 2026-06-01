@@ -288,6 +288,12 @@ def test_ensure_reasoning_disabled_rejects_reasoning_tokens():
         LLMRefiner._ensure_reasoning_disabled(payload)
 
 
+def test_extract_text_strips_improved_prefix():
+    for prefix in ("Improved: ", "improved: ", "Verbessert: ", "Verbesserter Text: "):
+        payload = {"choices": [{"message": {"content": f"{prefix}Das ist der bereinigte Text."}}]}
+        assert LLMRefiner._extract_text(payload) == "Das ist der bereinigte Text.", f"failed for prefix {prefix!r}"
+
+
 def test_extract_text_raises_on_bad_shape():
     with pytest.raises(LLMError):
         LLMRefiner._extract_text({"nope": 1})

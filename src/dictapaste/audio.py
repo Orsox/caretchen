@@ -1,7 +1,6 @@
 ﻿from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Optional
 import threading
 
 import numpy as np
@@ -34,7 +33,7 @@ class AudioRecorder:
             return self._stream is not None
 
     @property
-    def last_status(self) -> Optional[str]:
+    def last_status(self) -> str | None:
         return self._last_status
 
     def start(self) -> None:

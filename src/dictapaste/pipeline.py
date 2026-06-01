@@ -66,6 +66,7 @@ class DictationPipeline:
         self._refiner = refiner or LLMRefiner(config.llm)
         self._paste_func = paste_func or (lambda text: paste_text(text, mode=self._config.output.paste_mode))
 
+        self._custom_recorder = recorder is not None
         self._custom_transcriber = transcriber is not None
         self._custom_refiner = refiner is not None
         self._async_processing = async_processing
@@ -130,7 +131,7 @@ class DictationPipeline:
                     progress_callback=self._on_stt_progress,
                 )
 
-            if not self._custom_transcriber:
+            if not self._custom_recorder:
                 self._recorder = AudioRecorder(
                     device_index=config.audio.device_index,
                     level_callback=self._audio_level_callback,
@@ -188,6 +189,14 @@ class DictationPipeline:
 
         self._notify(tr("pipeline_recording_aborted"))
         self._set_state(AppState.IDLE)
+
+    @property
+    def history(self) -> DictationHistory | None:
+        return self._history
+
+    def cancel_llm(self) -> None:
+        """Request cancellation of any in-progress LLM request."""
+        self._refiner.cancel()
 
     def retry_last_paste(self) -> None:
         """Retry pasting the last output text."""
@@ -436,7 +445,7 @@ class DictationPipeline:
             self._paste_func(output_text)
             paste_finished_at = time.monotonic()
             paste_succeeded = True
-            self._notify("Dictation pasted.")
+            self._notify(tr("pipeline_pasted"))
 
             # Record to history
             if self._history is not None:

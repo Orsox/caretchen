@@ -65,10 +65,10 @@ class TestI18nCore:
         assert tr("settings_history_empty") == "No entries."
 
         set_locale("de")
-        assert tr("settings_history_entries") == "Eintraege: "
+        assert tr("settings_history_entries") == "Einträge: "
         assert tr("settings_history_copy") == "Auswahl kopieren"
-        assert tr("settings_history_clear") == "Verlauf loeschen"
-        assert tr("settings_history_empty") == "Keine Eintraege."
+        assert tr("settings_history_clear") == "Verlauf löschen"
+        assert tr("settings_history_empty") == "Keine Einträge."
 
     def test_tr_log_labels(self) -> None:
         set_locale("en")
@@ -78,9 +78,9 @@ class TestI18nCore:
         assert tr("settings_log_no_file") == "No log file found."
 
         set_locale("de")
-        assert tr("settings_log_open") == "Log-Datei oeffnen"
-        assert tr("settings_log_clear") == "Log loeschen"
-        assert tr("settings_log_cleared") == "Log geloescht."
+        assert tr("settings_log_open") == "Log-Datei öffnen"
+        assert tr("settings_log_clear") == "Log löschen"
+        assert tr("settings_log_cleared") == "Log gelöscht."
         assert tr("settings_log_no_file") == "Keine Log-Datei gefunden."
 
     def test_set_locale_invalid_falls_back_to_en(self) -> None:

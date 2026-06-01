@@ -222,15 +222,14 @@ class DictaPasteTrayApp:
         if self._pipeline.state == AppState.IDLE:
             self._paste_target_point = point
             self._paste_target_window_id = self._window_id_at_cursor()
-        if self._floating_overlays_enabled():
-            self._mode_popup.show_at(point)
+        self._mode_popup.show_at(point)
         if self._pipeline.state == AppState.IDLE:
             self._pipeline.toggle_recording(self._mode_popup.selected_mode)
         else:
             self._pipeline.toggle_recording()
 
     def _on_mouse_moved(self, _x: int, _y: int) -> None:
-        if self._floating_overlays_enabled() and self._mode_popup.isVisible():
+        if self._mode_popup.isVisible():
             self._mode_popup.select_at_global(QCursor.pos())
 
     def _on_mouse_released(self, _x: int, _y: int) -> None:
@@ -238,8 +237,7 @@ class DictaPasteTrayApp:
         selected_mode = self._mode_popup.selected_mode
         self._mode_popup.hide()
         if self._pipeline.state == AppState.RECORDING:
-            if self._floating_overlays_enabled():
-                self._processing_overlay.show_at(self._processing_overlay_point())
+            self._processing_overlay.show_at(self._processing_overlay_point())
             self._pipeline.toggle_recording(selected_mode)
 
     def _processing_overlay_point(self) -> QPoint:
@@ -248,12 +246,6 @@ class DictaPasteTrayApp:
         # focus from the target app; this offset remains useful on X11.
         return self._last_release_point - QPoint(0, 112)
 
-    def _floating_overlays_enabled(self) -> bool:
-        # Keep overlays enabled because the mode selection popup is part of the
-        # core workflow. On Wayland this can cost focus, so use copy-only output
-        # and let the user paste manually with Ctrl+V.
-        return True
-
     def _retry_last_paste(self) -> None:
         self._pipeline.retry_last_paste()
 
@@ -261,7 +253,7 @@ class DictaPasteTrayApp:
         self._pipeline.abort_recording()
 
     def _cancel_llm(self) -> None:
-        self._pipeline._refiner.cancel()
+        self._pipeline.cancel_llm()
 
     def _copy_last_result(self) -> None:
         """Copy the last pasted text to clipboard."""
@@ -303,7 +295,7 @@ class DictaPasteTrayApp:
     def _open_settings(self) -> None:
         dialog = SettingsDialog(
             self._config, self._prompt_template,
-            history=self._pipeline._history,
+            history=self._pipeline.history,
         )
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
@@ -346,11 +338,10 @@ class DictaPasteTrayApp:
         return
 
     def _on_llm_stream_chunk(self, _chunk: str) -> None:
-        if self._floating_overlays_enabled():
-            self._processing_overlay.show_streaming(self._processing_overlay_point())
+        self._processing_overlay.show_streaming(self._processing_overlay_point())
 
     def _on_audio_level(self, level: float) -> None:
-        if self._pipeline.state != AppState.RECORDING or not self._floating_overlays_enabled():
+        if self._pipeline.state != AppState.RECORDING:
             return
         if self._mode_popup.isVisible():
             # The recording equalizer is part of the mode popup layout, above the
@@ -362,13 +353,12 @@ class DictaPasteTrayApp:
         self._processing_overlay.show_recording_level(level, point)
 
     def _on_state_change(self, state: AppState) -> None:
-        if self._floating_overlays_enabled():
-            if state == AppState.TRANSCRIBING:
-                self._processing_overlay.show_at(self._processing_overlay_point())
-            elif state == AppState.REFINING:
-                self._processing_overlay.show_streaming(self._processing_overlay_point())
-            elif state == AppState.PASTING:
-                self._processing_overlay.show_streaming(self._processing_overlay_point())
+        if state == AppState.TRANSCRIBING:
+            self._processing_overlay.show_at(self._processing_overlay_point())
+        elif state == AppState.REFINING:
+            self._processing_overlay.show_streaming(self._processing_overlay_point())
+        elif state == AppState.PASTING:
+            self._processing_overlay.show_streaming(self._processing_overlay_point())
 
         labels = {
             AppState.IDLE: tr("tray_state_idle"),
@@ -402,11 +392,10 @@ class DictaPasteTrayApp:
         else:
             self._stop_tray_activity(state_name)
 
-        if self._floating_overlays_enabled():
-            if state == AppState.IDLE:
-                self._processing_overlay.show_done()
-            elif state == AppState.ERROR:
-                self._processing_overlay.hide()
+        if state == AppState.IDLE:
+            self._processing_overlay.show_done()
+        elif state == AppState.ERROR:
+            self._processing_overlay.hide()
 
         # Show retry action only in ERROR state
         self._retry_action.setEnabled(state == AppState.ERROR)

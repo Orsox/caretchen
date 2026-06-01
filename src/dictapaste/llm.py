@@ -13,14 +13,14 @@ from .prompt import render_prompt
 logger = logging.getLogger(__name__)
 
 _ECHO_PREFIX_RE = re.compile(
-    r"^(?:bereinigter\s*text|cleaned\s*text|result|output|ergebnis|final(?:\s+(?:answer|choice))?(?:[^:\n]{0,100})?)\s*:\s*",
+    r"^(?:bereinigter\s*text|cleaned\s*text|improved|verbessert(?:er?\s*text)?|result|output|ergebnis|final(?:\s+(?:answer|choice))?(?:[^:\n]{0,100})?)\s*:\s*",
     re.IGNORECASE,
 )
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
 _THINK_OPEN = "<think>"
 _THINK_CLOSE = "</think>"
 _FINAL_MARKER_RE = re.compile(
-    r"(?:^|\n)\s*(?:final(?:\s+(?:answer|choice))?(?:[^:\n]{0,100})?|end(?:ergebnis)?|bereinigter\s*text|cleaned\s*text|result|output|ergebnis)\s*:\s*",
+    r"(?:^|\n)\s*(?:final(?:\s+(?:answer|choice))?(?:[^:\n]{0,100})?|end(?:ergebnis)?|bereinigter\s*text|cleaned\s*text|improved|verbessert(?:er?\s*text)?|result|output|ergebnis)\s*:\s*",
     re.IGNORECASE,
 )
 _ANALYSIS_MARKER_RE = re.compile(
@@ -109,9 +109,6 @@ class LLMRefiner:
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
         self._cancel_requested = False
-
-    def update_config(self, config: LLMConfig) -> None:
-        self.config = config
 
     def cancel(self) -> None:
         """Request cancellation of the current LLM request."""
@@ -275,6 +272,7 @@ class LLMRefiner:
                 {
                     "role": "system",
                     "content": (
+                        "/no_think\n"
                         "You are a deterministic text-cleaning function. "
                         "Return only the final cleaned continuous prose. "
                         "Do not include headings, labels, explanations, alternatives, analysis, reasoning, or thinking. "
@@ -378,6 +376,30 @@ class LLMRefiner:
         think_filter = _ThinkBlockFilter()
         text = (think_filter.feed(text) + think_filter.flush()).strip()
         text = _THINK_BLOCK_RE.sub("", text).strip()
+
+        # Handle orphaned </think> close tag (model started thinking but block wasn't captured)
+        last_close = text.lower().rfind("</think>")
+        if last_close >= 0:
+            after = text[last_close + len("</think>"):].strip()
+            if after:
+                text = after
+
+        prompt_clean = (prompt or "").strip()
+        transcript_clean = (transcript or "").strip()
+
+        # Fast path: output is clean — strip any label prefix and return immediately
+        if not (
+            _META_LEAK_RE.search(text)
+            or _FINAL_MARKER_RE.search(text)
+            or _ANALYSIS_MARKER_RE.search(text)
+            or _READY_MARKER_RE.search(text)
+            or _CHECKLIST_LINE_RE.search(text)
+            or (prompt_clean and text.startswith(prompt_clean))
+            or (transcript_clean and len(text) > len(transcript_clean) and text.startswith(transcript_clean))
+        ):
+            cleaned = _ECHO_PREFIX_RE.sub("", text, count=1).strip()
+            return cleaned or text
+
         candidates: list[str] = [text]
 
         if _META_LEAK_RE.search(text):
@@ -406,7 +428,6 @@ class LLMRefiner:
             if paragraphs:
                 candidates.insert(0, paragraphs[-1])
 
-        prompt_clean = (prompt or "").strip()
         if prompt_clean:
             if text.startswith(prompt_clean):
                 tail = text[len(prompt_clean) :].strip(" \n\t:-")
@@ -418,7 +439,6 @@ class LLMRefiner:
                 if tail:
                     candidates.append(tail)
 
-        transcript_clean = (transcript or "").strip()
         if transcript_clean and len(text) > len(transcript_clean):
             raw_prefix = f"Raw transcript:\n{transcript_clean}"
             if text.startswith(raw_prefix):

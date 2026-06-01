@@ -23,8 +23,18 @@ MODE_LABELS: dict[DictationMode, str] = {
 
 
 _MODE_INSTRUCTIONS: dict[DictationMode, str] = {
-    DictationMode.IMPROVE: "Bereinige und verbessere den diktierten Text als direkt verwendbare Endfassung.",
-    DictationMode.PROMPT: "Formuliere aus dem diktierten Text einen klaren, direkt verwendbaren Prompt.",
+    DictationMode.IMPROVE: (
+        "Überarbeite den diktierten Text zu klarem, poliertem Schriftdeutsch. "
+        "Gehe über die bloße Bereinigung hinaus: verbessere Satzbau, Wortwahl und Ausdrucksfluss, "
+        "ohne den Inhalt zu verändern oder Fakten hinzuzufügen. "
+        "Das Ergebnis soll als professionelle, sofort einsetzbare Endfassung wirken."
+    ),
+    DictationMode.PROMPT: (
+        "Forme den diktierten Text in einen präzisen, direkt verwendbaren Prompt für ein KI-System um. "
+        "Benenne klar: die Aufgabe (was soll getan werden?), den Kontext (relevante Details) und "
+        "das gewünschte Ergebnis (Format, Umfang, Stil). "
+        "Kein Konjunktiv, keine Höflichkeitsfloskeln, keine Diktiersprache — direktiv und präzise formuliert."
+    ),
     DictationMode.SUMMARIZE: "Verdichte den diktierten Text zu einer kurzen, direkt verwendbaren Fassung.",
     DictationMode.TRANSLATE: (
         "Erkenne die Sprache des diktierten Textes automatisch. "

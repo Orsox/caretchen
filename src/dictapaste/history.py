@@ -40,7 +40,8 @@ class DictationHistory:
         self._max_entries = _MAX_ENTRIES
 
         if history_path is None:
-            history_path = Path(__file__).resolve().parent.parent / "data" / HISTORY_FILE_NAME
+            from .config import default_config_dir
+            history_path = default_config_dir() / HISTORY_FILE_NAME
 
         self._history_path = history_path
         self._load()

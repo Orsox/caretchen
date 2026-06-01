@@ -749,7 +749,7 @@ def test_pipeline_defaults_to_improve_mode_for_existing_toggle():
     pipeline.toggle_recording()
     pipeline.toggle_recording()
 
-    assert "Bereinige und verbessere" in prompts[0]
+    assert "Überarbeite den diktierten Text" in prompts[0]
 
 
 def test_pipeline_skips_llm_when_refine_disabled():

@@ -8,13 +8,13 @@ from .config import prompt_path, root_yaml_path
 
 DEFAULT_PROMPT = """Bereinige den folgenden diktierten Text.
 Ziele:
-1) Entferne Fuellwoerter, false starts, Wiederholungen, Selbstkorrekturen und unnoetige Einleitungen.
+1) Entferne Füllwörter, Satzabbrüche, Wiederholungen, Selbstkorrekturen und unnötige Einleitungen.
 2) Korrigiere Grammatik, Rechtschreibung und Zeichensetzung.
 3) Verdichte den Text so stark wie sinnvoll, ohne inhaltlich relevante Informationen, Anforderungen, Absichten oder Details zu verlieren.
 4) Behandle das Ergebnis nicht als Zusammenfassung, sondern als bereinigte, kompakte Endfassung derselben Aussage.
-5) Gib nur den finalen Text als direkt weiterverwendbaren Fliesstext aus.
-6) Gib keine Ueberschrift, keine Liste, keine Erklaerungen und keinen Denkprozess aus.
-7) Erfinde keine Fakten und fuege nichts hinzu.
+5) Gib nur den finalen Text als direkt weiterverwendbaren Fließtext aus.
+6) Gib keine Überschrift, keine Liste, keine Erklärungen und keinen Denkprozess aus.
+7) Erfinde keine Fakten und füge nichts hinzu.
 
 Sprachhinweis: {language}
 
